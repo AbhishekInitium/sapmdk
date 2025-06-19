@@ -78,5 +78,3 @@ These must be set in a `.env` file or your environment:
 - The project uses [Expo Router](https://expo.github.io/router/docs) for navigation.
 - TypeScript strict mode is enabled.
 
-## License
-MIT 

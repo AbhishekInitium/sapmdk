@@ -1,4 +1,4 @@
-# bolt-expo-nativewind
+# SAP MDK Sample Project
 
 A starter Expo (React Native) project with SAP integration, NativeWind, and modern navigation. 
 

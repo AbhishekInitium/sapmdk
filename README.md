@@ -19,7 +19,7 @@ A starter Expo (React Native) project with SAP integration, NativeWind, and mode
 
 1. **Clone the repository**
    ```sh
-   git clone <your-repo-url>
+   git clone (https://github.com/AbhishekInitium/sapmdk)
    cd project-sapmdk
    ```
 

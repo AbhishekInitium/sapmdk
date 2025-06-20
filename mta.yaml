@@ -1,0 +1,21 @@
+_schema-version: "3.2"
+ID: sapmdk
+version: 0.0.1
+
+modules:
+  - name: sapmdk-approuter
+    type: approuter.nodejs
+    path: approuter
+    parameters:
+      memory: 256M
+      disk-quota: 256M
+    requires:
+      - name: sapmdk-xsuaa
+
+resources:
+  - name: sapmdk-xsuaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json

@@ -1,0 +1,13 @@
+{
+    "xsappname": "sapmdk-xsapp",
+    "tenant-mode": "dedicated",
+    "scopes": [
+      {
+        "name": "$XSAPPNAME.user",
+        "description": "User"
+      }
+    ],
+    "authorities": [
+      "$XSAPPNAME.user"
+    ]
+  }

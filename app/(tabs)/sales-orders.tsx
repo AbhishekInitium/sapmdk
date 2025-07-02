@@ -9,20 +9,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import {
-  Search,
-  Filter,
-  ShoppingCart,
-  Calendar,
-  User,
-  DollarSign,
-  Package,
-  ChevronRight,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-} from 'lucide-react-native';
+import { Search, Filter, ShoppingCart, Calendar, User, DollarSign, Package, ChevronRight, TrendingUp, Clock, CircleCheck as CheckCircle, CircleAlert as AlertCircle } from 'lucide-react-native';
 import { sapSalesOrderService, SalesOrder } from '@/services/sapSalesOrderService';
 import LoadingSpinner from '@/components/LoadingSpinner';
 

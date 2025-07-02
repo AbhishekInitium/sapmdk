@@ -34,19 +34,33 @@ interface SAPSalesOrderResponse {
   };
 }
 
-class SAPSalesOrderService {
-  private baseUrl: string;
-  private username: string;
-  private password: string;
+interface SAPCredentials {
+  username: string;
+  password: string;
+  apiUrl: string;
+}
 
-  constructor() {
-    this.baseUrl = process.env.EXPO_PUBLIC_SAP_SALES_ORDER_API || 'https://my418390-api.s4hana.cloud.sap/sap/opu/odata/sap/API_SALES_ORDER_SRV';
-    this.username = process.env.EXPO_PUBLIC_SAP_USERNAME || '';
-    this.password = process.env.EXPO_PUBLIC_SAP_PASSWORD || '';
+class SAPSalesOrderService {
+  private credentials: SAPCredentials | null = null;
+
+  setCredentials(credentials: SAPCredentials) {
+    this.credentials = credentials;
+  }
+
+  clearCredentials() {
+    this.credentials = null;
+  }
+
+  hasCredentials(): boolean {
+    return this.credentials !== null;
   }
 
   private getAuthHeaders(): HeadersInit {
-    const credentials = btoa(`${this.username}:${this.password}`);
+    if (!this.credentials) {
+      throw new Error('No credentials provided');
+    }
+    
+    const credentials = btoa(`${this.credentials.username}:${this.credentials.password}`);
     return {
       'Authorization': `Basic ${credentials}`,
       'Content-Type': 'application/json',
@@ -55,7 +69,11 @@ class SAPSalesOrderService {
   }
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    if (!this.credentials) {
+      throw new Error('No credentials provided. Please authenticate first.');
+    }
+
+    const url = `${this.credentials.apiUrl}${endpoint}`;
     
     try {
       const response = await fetch(url, {
@@ -67,6 +85,15 @@ class SAPSalesOrderService {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please check your credentials.');
+        }
+        if (response.status === 403) {
+          throw new Error('Access denied. You may not have permission to access this resource.');
+        }
+        if (response.status === 404) {
+          throw new Error('API endpoint not found. Please check the API URL.');
+        }
         throw new Error(`SAP API Error: ${response.status} ${response.statusText}`);
       }
 
@@ -77,7 +104,23 @@ class SAPSalesOrderService {
     }
   }
 
+  async testConnection(): Promise<boolean> {
+    try {
+      // Try to fetch a small number of sales orders to test the connection
+      await this.makeRequest<SAPSalesOrderResponse>('/A_SalesOrder?$top=1');
+      return true;
+    } catch (error) {
+      console.error('Connection test failed:', error);
+      throw error;
+    }
+  }
+
   async getSalesOrders(top: number = 50): Promise<SalesOrder[]> {
+    if (!this.credentials) {
+      // Return mock data when no credentials are provided
+      return this.getMockSalesOrders();
+    }
+
     try {
       const response = await this.makeRequest<SAPSalesOrderResponse>(
         `/A_SalesOrder?$top=${top}&$expand=to_Item&$orderby=CreationDate desc`
@@ -85,12 +128,15 @@ class SAPSalesOrderService {
       return response.d.results;
     } catch (error) {
       console.error('Error fetching sales orders:', error);
-      // Return mock data for demo purposes when API fails
-      return this.getMockSalesOrders();
+      throw error;
     }
   }
 
   async getSalesOrder(salesOrderId: string): Promise<SalesOrder | null> {
+    if (!this.credentials) {
+      return null;
+    }
+
     try {
       const response = await this.makeRequest<{ d: SalesOrder }>(
         `/A_SalesOrder('${salesOrderId}')?$expand=to_Item`
@@ -103,6 +149,10 @@ class SAPSalesOrderService {
   }
 
   async getSalesOrdersByCustomer(customerId: string): Promise<SalesOrder[]> {
+    if (!this.credentials) {
+      return [];
+    }
+
     try {
       const response = await this.makeRequest<SAPSalesOrderResponse>(
         `/A_SalesOrder?$filter=SoldToParty eq '${customerId}'&$expand=to_Item&$orderby=CreationDate desc`
@@ -115,6 +165,10 @@ class SAPSalesOrderService {
   }
 
   async getSalesOrdersByDateRange(startDate: string, endDate: string): Promise<SalesOrder[]> {
+    if (!this.credentials) {
+      return [];
+    }
+
     try {
       const response = await this.makeRequest<SAPSalesOrderResponse>(
         `/A_SalesOrder?$filter=CreationDate ge datetime'${startDate}' and CreationDate le datetime'${endDate}'&$expand=to_Item&$orderby=CreationDate desc`
@@ -265,4 +319,4 @@ class SAPSalesOrderService {
 }
 
 export const sapSalesOrderService = new SAPSalesOrderService();
-export type { SalesOrder, SalesOrderItem };
+export type { SalesOrder, SalesOrderItem, SAPCredentials };

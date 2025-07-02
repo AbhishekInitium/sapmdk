@@ -9,24 +9,30 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { Search, Filter, ShoppingCart, Calendar, User, DollarSign, Package, ChevronRight, TrendingUp, Clock, CircleCheck as CheckCircle, CircleAlert as AlertCircle } from 'lucide-react-native';
+import { Search, Filter, ShoppingCart, Calendar, User, DollarSign, Package, ChevronRight, Clock, CircleCheck as CheckCircle, CircleAlert as AlertCircle, Key, Wifi, WifiOff } from 'lucide-react-native';
 import { sapSalesOrderService, SalesOrder } from '@/services/sapSalesOrderService';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import CredentialsModal from '@/components/CredentialsModal';
 
 export default function SalesOrders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<SalesOrder[]>([]);
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionLoading, setConnectionLoading] = useState(false);
 
   const filters = ['all', 'pending', 'processing', 'completed'];
 
   const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    loadSalesOrders();
-  }, []);
+    if (isConnected) {
+      setRefreshing(true);
+      loadSalesOrders();
+    }
+  }, [isConnected]);
 
   const loadSalesOrders = async () => {
     try {
@@ -38,7 +44,7 @@ export default function SalesOrders() {
       console.error('Error loading sales orders:', error);
       Alert.alert(
         'Error',
-        'Failed to load sales orders. Please check your connection and try again.',
+        error instanceof Error ? error.message : 'Failed to load sales orders. Please check your connection and try again.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -47,9 +53,65 @@ export default function SalesOrders() {
     }
   };
 
+  const handleCredentialsSubmit = async (credentials: { username: string; password: string; apiUrl: string }) => {
+    try {
+      setConnectionLoading(true);
+      
+      // Set credentials in the service
+      sapSalesOrderService.setCredentials(credentials);
+      
+      // Test the connection
+      await sapSalesOrderService.testConnection();
+      
+      // If successful, close modal and load data
+      setIsConnected(true);
+      setShowCredentialsModal(false);
+      
+      Alert.alert(
+        'Success',
+        'Successfully connected to SAP system!',
+        [{ text: 'OK', onPress: () => loadSalesOrders() }]
+      );
+      
+    } catch (error) {
+      console.error('Connection failed:', error);
+      Alert.alert(
+        'Connection Failed',
+        error instanceof Error ? error.message : 'Failed to connect to SAP system. Please check your credentials and try again.',
+        [{ text: 'OK' }]
+      );
+      sapSalesOrderService.clearCredentials();
+    } finally {
+      setConnectionLoading(false);
+    }
+  };
+
+  const handleDisconnect = () => {
+    Alert.alert(
+      'Disconnect',
+      'Are you sure you want to disconnect from the SAP system?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: () => {
+            sapSalesOrderService.clearCredentials();
+            setIsConnected(false);
+            setSalesOrders([]);
+            setFilteredOrders([]);
+          },
+        },
+      ]
+    );
+  };
+
   useEffect(() => {
-    loadSalesOrders();
-  }, []);
+    // Load mock data initially
+    if (!isConnected) {
+      loadSalesOrders();
+    }
+  }, [isConnected]);
 
   useEffect(() => {
     let filtered = salesOrders;
@@ -110,7 +172,7 @@ export default function SalesOrders() {
     }).format(numAmount);
   };
 
-  if (loading) {
+  if (loading && salesOrders.length === 0) {
     return (
       <View style={styles.loadingContainer}>
         <LoadingSpinner size={48} text="Loading Sales Orders..." />
@@ -124,12 +186,49 @@ export default function SalesOrders() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Sales Orders</Text>
-          <Text style={styles.headerSubtitle}>SAP S/4HANA Integration</Text>
+          <View style={styles.headerSubtitleContainer}>
+            <Text style={styles.headerSubtitle}>SAP S/4HANA Integration</Text>
+            <View style={[styles.connectionStatus, isConnected ? styles.connected : styles.disconnected]}>
+              {isConnected ? <Wifi size={12} color="#10b981" /> : <WifiOff size={12} color="#ef4444" />}
+              <Text style={[styles.connectionText, isConnected ? styles.connectedText : styles.disconnectedText]}>
+                {isConnected ? 'Connected' : 'Mock Data'}
+              </Text>
+            </View>
+          </View>
         </View>
-        <TouchableOpacity style={styles.addButton}>
-          <ShoppingCart size={20} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {isConnected ? (
+            <TouchableOpacity style={styles.disconnectButton} onPress={handleDisconnect}>
+              <WifiOff size={16} color="#ef4444" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              style={styles.connectButton} 
+              onPress={() => setShowCredentialsModal(true)}>
+              <Key size={16} color="#fff" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.addButton}>
+            <ShoppingCart size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Connection Banner */}
+      {!isConnected && (
+        <TouchableOpacity 
+          style={styles.connectionBanner}
+          onPress={() => setShowCredentialsModal(true)}>
+          <Key size={20} color="#3b82f6" />
+          <View style={styles.bannerContent}>
+            <Text style={styles.bannerTitle}>Connect to SAP System</Text>
+            <Text style={styles.bannerSubtitle}>
+              Tap to enter your credentials and view live sales orders
+            </Text>
+          </View>
+          <ChevronRight size={20} color="#3b82f6" />
+        </TouchableOpacity>
+      )}
 
       {/* Summary Cards */}
       <View style={styles.summaryContainer}>
@@ -291,11 +390,21 @@ export default function SalesOrders() {
             <Text style={styles.emptyStateDescription}>
               {searchQuery || selectedFilter !== 'all'
                 ? 'Try adjusting your search or filter criteria'
-                : 'Sales orders will appear here once they are created'}
+                : isConnected
+                ? 'No sales orders available in your SAP system'
+                : 'Connect to your SAP system to view live sales orders'}
             </Text>
           </View>
         )}
       </ScrollView>
+
+      {/* Credentials Modal */}
+      <CredentialsModal
+        visible={showCredentialsModal}
+        onClose={() => setShowCredentialsModal(false)}
+        onSubmit={handleCredentialsSubmit}
+        loading={connectionLoading}
+      />
     </View>
   );
 }
@@ -328,11 +437,65 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     fontFamily: 'Inter-Bold',
   },
+  headerSubtitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
   headerSubtitle: {
     fontSize: 16,
     color: '#64748b',
-    marginTop: 4,
     fontFamily: 'Inter-Regular',
+  },
+  connectionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  connected: {
+    backgroundColor: '#dcfce7',
+  },
+  disconnected: {
+    backgroundColor: '#fef2f2',
+  },
+  connectionText: {
+    fontSize: 10,
+    fontWeight: '500',
+    fontFamily: 'Inter-Medium',
+  },
+  connectedText: {
+    color: '#10b981',
+  },
+  disconnectedText: {
+    color: '#ef4444',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  connectButton: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  disconnectButton: {
+    backgroundColor: '#fef2f2',
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   addButton: {
     backgroundColor: '#3b82f6',
@@ -344,9 +507,41 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  connectionBanner: {
+    backgroundColor: '#f0f9ff',
+    borderLeftWidth: 4,
+    borderLeftColor: '#3b82f6',
+    margin: 20,
+    padding: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  bannerContent: {
+    flex: 1,
+  },
+  bannerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e40af',
+    marginBottom: 2,
+    fontFamily: 'Inter-SemiBold',
+  },
+  bannerSubtitle: {
+    fontSize: 14,
+    color: '#3730a3',
+    fontFamily: 'Inter-Regular',
+  },
   summaryContainer: {
     flexDirection: 'row',
     padding: 20,
+    paddingTop: 10,
     gap: 12,
   },
   summaryCard: {

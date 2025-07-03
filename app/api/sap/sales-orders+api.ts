@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
     // Make request to SAP API
     const sapResponse = await fetch(
-      `${apiUrl}/A_SalesOrder?$top=${top}&$expand=to_Item&$orderby=CreationDate desc`,
+      `${apiUrl}/A_SalesOrder`,
       {
         method: 'GET',
         headers: {

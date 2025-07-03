@@ -76,8 +76,23 @@ class SAPSalesOrderService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Request failed: ${response.status} ${response.statusText}`);
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Request failed: ${response.status} ${response.statusText}`);
+        } else {
+          // If not JSON, read as text for better error message
+          const errorText = await response.text().catch(() => 'Unknown error');
+          throw new Error(`Request failed: ${response.status} ${response.statusText}. Response: ${errorText}`);
+        }
+      }
+
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await response.text();
+        throw new Error(`Expected JSON response but received: ${contentType || 'unknown content type'}. Response: ${responseText.substring(0, 200)}...`);
       }
 
       return await response.json();
@@ -101,9 +116,29 @@ class SAPSalesOrderService {
         body: JSON.stringify(this.credentials),
       });
 
+      if (!response.ok) {
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Connection test failed: ${response.status} ${response.statusText}`);
+        } else {
+          // If not JSON, read as text for better error message
+          const errorText = await response.text().catch(() => 'Unknown error');
+          throw new Error(`Connection test failed: ${response.status} ${response.statusText}. Response: ${errorText}`);
+        }
+      }
+
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await response.text();
+        throw new Error(`Expected JSON response but received: ${contentType || 'unknown content type'}. Response: ${responseText.substring(0, 200)}...`);
+      }
+
       const result = await response.json();
       
-      if (!response.ok || !result.success) {
+      if (!result.success) {
         throw new Error(result.error || 'Connection test failed');
       }
 
